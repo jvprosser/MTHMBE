@@ -7,6 +7,7 @@ from models import RMStats
 import core
 import time
 from time import mktime, strftime
+from pytz import timezone
 
 import datetime
 from datetime import timedelta,datetime
@@ -36,6 +37,7 @@ app.logger.debug("views.py")
 
 def unix_timestamp_secs():
   dt = datetime.now()
+  
   epoch = datetime.utcfromtimestamp(0)
   return int((dt - epoch).total_seconds() )
 #  return int((dt - epoch).total_seconds() * 1000.0)
@@ -48,6 +50,10 @@ def format_elapsedime(millis):
   h, m = divmod(m, 60)
   return  "%d:%02d:%02d" % (h, m, s)
 
+
+# curl 'http://bottou01.sjc.cloudera.com:25000/queries?json' | more
+def get_impala_stats():
+  return 1
 
 def get_rmstats(kerb,period_secs):
   app.logger.debug("In get_rmstats")
@@ -78,7 +84,11 @@ def get_rmstats(kerb,period_secs):
     if len(runningOrFinished):
       for item in runningOrFinished:
         item.update({"periodBegin" : periodBegin})
-        app.logger.debug("job " + item['id']  + " periodBegin " + str(periodBegin) + " finishedTime " + str(int(item['finishedTime']/1000)))
+        pbts=datetime.fromtimestamp(periodBegin )
+        st=datetime.fromtimestamp(int(item['finishedTime']/1000) )
+        sfst = datetime.fromtimestamp(int(item['finishedTime']/1000))
+#        app.logger.debug("job " + item['id']  + " periodBegin " + str(pbts) + " " + " finishedTime " + str(sfst)+ " finished time + 3 hours" + str(st)   )
+        app.logger.debug("job " + item['id']  + " periodBegin " + str(periodBegin) + " " + " finishedTime " + str(int(item['finishedTime']/1000))+ " finished time + 3 hours" + str(st)   )
 
  
 #     app.logger.debug("about to insert"  )

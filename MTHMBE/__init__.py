@@ -3,7 +3,9 @@ import json
 from flask import Flask, request, Response
 from flask import render_template, send_from_directory, url_for
 
+
 app = Flask(__name__)
+
 
 import logging
 from logging.handlers import RotatingFileHandler
@@ -23,9 +25,6 @@ handler.setFormatter(logging.Formatter(
         '%(asctime)s %(levelname)s: %(message)s '
         '[in %(module)s.%(filename)s:%(lineno)d]'))
 
-scheduler = APScheduler()
-scheduler.init_app(app)
-
 
 app.logger.addHandler(handler)
 app.logger.setLevel(logging.DEBUG)
@@ -38,6 +37,10 @@ import MTHMBE.views
 import MTHMBE.core
 import MTHMBE.models
 import MTHMBE.controllers
+
+scheduler = APScheduler()
+scheduler.init_app(app)
+
 
 
 

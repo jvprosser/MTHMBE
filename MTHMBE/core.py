@@ -2,13 +2,11 @@ from MTHMBE import app
 
 from datetime import datetime
 
-from flask.ext.sqlalchemy import SQLAlchemy
-from flask.ext.restless import APIManager
+from flask_sqlalchemy import SQLAlchemy
+from flask_restless import APIManager
 
 from contextlib import contextmanager
 
-
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://ec2-user:test@localhost/MTHMBE'
 
 app.logger.debug("core.py")
 
@@ -24,7 +22,8 @@ from sqlalchemy import create_engine
 Session = sessionmaker()
 
 # later, we create the engine
-engine = create_engine('mysql://ec2-user:test@localhost/MTHMBE')
+#engine = create_engine('mysql://ec2-user:test@localhost/MTHMBE')
+engine = create_engine(app.config['SQL_ENGINE'])
 
 # associate it with our custom Session class
 Session.configure(bind=engine)
