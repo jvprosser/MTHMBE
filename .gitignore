@@ -1,6 +1,9 @@
 *.pyc
 venv
+*#
+*.log*
 env
+*.db
 *~
 .DS_Store
 ignore
