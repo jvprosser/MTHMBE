@@ -12,13 +12,11 @@ class Config(object):
         {
             'id': 'get_impala_stats_trigger_02',
             'func': 'MTHMBE.views:get_impala_stats',
-            'args': (False, 60,"bottou02.sjc.cloudera.com"),
+            'args': (False, 120,"bottou02.sjc.cloudera.com"),
             'replace_existing': True,
             'trigger': 'interval',
-            'seconds': 60
-
+            'seconds': 120
         }
-
     ]
 
     IMPALA_DAEMONS=[ "bottou01.sjc.cloudera.com","bottou02.sjc.cloudera.com", "bottou03.sjc.cloudera.com","bottou04.sjc.cloudera.com","bottou05.sjc.cloudera.com"]

@@ -47,7 +47,7 @@ class RMStats(db.Model):
 class Impala_Stats(db.Model):
         __tablename__  = 'impalastats'
         __table_args__ = (
-                PrimaryKeyConstraint('query_id', 'periodBegin_dt','host'),
+                PrimaryKeyConstraint('query_id','host'),
         )
         effective_user = db.Column( db.String( 64 ) ) 
         default_db     = db.Column( db.String( 64 ) )

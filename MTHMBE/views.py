@@ -111,11 +111,11 @@ def get_rmstats(kerb,period_secs,rm_host):
 
 
 def get_impala_stats(kerb,period_secs,impalad):
-  app.logger.debug("In get_impala_stats for " + impalad)
+ # app.logger.debug("In get_impala_stats for " + impalad)
   nKey='queue'
 
 
-  app.logger.debug("Checking URL   http://"+impalad +":" + app.config['IMPALA_PORT'] +app.config['IMPALA_URI'])
+#  app.logger.debug("Checking URL   http://"+impalad +":" + app.config['IMPALA_PORT'] +app.config['IMPALA_URI'])
   batch_offset=timedelta(seconds=period_secs)
   periodBegin_dt =  datetime.now() - batch_offset
 
@@ -128,66 +128,79 @@ def get_impala_stats(kerb,period_secs,impalad):
 
 #  app.logger.debug("In get_impala_stats 5 " + json.dumps(impala_dict) )
 #num_in_flight_queries
+#
+#  if impala_dict['num_executing_queries'] > 0:
+#    app.logger.debug("num_executing_queries is " + str(impala_dict['num_executing_queries']) )
+#
+#  if impala_dict['num_waiting_queries'] > 0:
+#    app.logger.debug("num_waiting_queries is " + str(impala_dict['num_waiting_queries']) )
+
+#  if impala_dict['completed_log_size'] > 0:
+#    entries = impala_dict['completed_queries']
+
+  entries = list()
+
   if impala_dict['num_in_flight_queries'] > 0:
     app.logger.debug("num_in_flight_queries is " + str(impala_dict['num_in_flight_queries']) )
+    entries+=impala_dict['in_flight_queries']
+    app.logger.debug("num_in_flight_queries is DONE "  )
 
-  if impala_dict['num_executing_queries'] > 0:
-    app.logger.debug("num_executing_queries is " + str(impala_dict['num_executing_queries']) )
-
-  if impala_dict['num_waiting_queries'] > 0:
-    app.logger.debug("num_waiting_queries is " + str(impala_dict['num_waiting_queries']) )
+  app.logger.debug("entries list is len: " + str(len(entries)))
 
   if impala_dict['completed_log_size'] > 0:
+    app.logger.debug("completed_queries  ")
+    entries += impala_dict['completed_queries'] 
 
-    entries = impala_dict['completed_queries']
-
-    add_impala_records(entries,(lambda x: ( x['end_time_dt'] > periodBegin_dt)),'COMPLETED',periodBegin_dt,impalad)
-
-
-def add_impala_records(entries,filter_func,state,periodBegin_dt,impalad):
-
+  app.logger.debug("entries list is NOW len: " + str(len(entries)))
 
   for x in entries:
-    start_time_dt  = datetime.strptime( x['start_time'][:-3],"%Y-%m-%d %H:%M:%S.%f") # trim off last 3 000s from timestamp string
-    end_time_dt    = datetime.strptime( x['start_time'][:-3],"%Y-%m-%d %H:%M:%S.%f")
+#    end_time_dt    = datetime.strptime( x['end_time'][:-3],"%Y-%m-%d %H:%M:%S.%f")
+    start_time_dt    = datetime.strptime( x['start_time'][:-3],"%Y-%m-%d %H:%M:%S.%f")
 
-    
-    x.update({'duration_ms'     : conv_duration_to_millis(x['duration']     ) })
-    x.update({'waiting_time_ms' : conv_duration_to_millis(x['waiting_time'] ) })
-    x.update({'start_time_dt'   : start_time_dt                               })
-    x.update({'end_time_dt'     : end_time_dt                                 })
-    x.update({"periodBegin_dt"  : periodBegin_dt                              })
-    x.update({"state"           : state                                       })
-    x.update({"host"             : impalad                                     })
-    del x['start_time'  ] 
-    del x['end_time'    ] 
-    del x['duration'    ] 
-    del x['waiting_time']
-#    app.logger.debug(impalad + " COMPARE                                           PERIODBEGIN_DT " +  str(periodBegin_dt)+ "      END_TIME_DT  "  +  str(x['end_time_dt'])  + " DIFF:  " + str(periodBegin_dt - x['end_time_dt']) )
-    if x['end_time_dt'] > periodBegin_dt:
-      app.logger.debug(" end time was AFTER periodbegin")
- #   else:
-#      app.logger.debug(" end time was BEFORE periodbegin")
+    duration_ms     = conv_duration_to_millis(x['duration'])
+    waiting_time_ms =  conv_duration_to_millis(x['waiting_time'])
 
-  keepers  = filter(lambda x: filter_func(x), entries)
+    batch_offset=timedelta(milliseconds=(duration_ms - waiting_time_ms))
+    derived_end_time_dt =  start_time_dt + batch_offset
+    x.update({'derived_end_time_dt' : derived_end_time_dt })
 
-#  app.logger.debug("In get_impala_stats 6 " + json.dumps(keepers) )
-
+    if (x['state'] == 'FINISHED' or x['state'] == 'EXCEPTION') and derived_end_time_dt > periodBegin_dt and x['stmt_type'] == 'QUERY':
+      app.logger.debug("    INFLIGHT4 BATCH TIME: " + str(periodBegin_dt) + "           END TIME: " + str(derived_end_time_dt) + "      STMT " + x['stmt'][:32] )
+  
+#  keepers  = filter(lambda x: ( x['end_time_dt'] > periodBegin_dt), entries)
+  keepers  = filter(lambda x: (x['derived_end_time_dt']  > periodBegin_dt and x['stmt_type'] == 'QUERY' and (x['state'] == 'FINISHED' or x['state'] == 'EXCEPTION') ), entries)
+  
   if len(keepers):
-    for item in keepers:
-      app.logger.debug("inserting query " + item['stmt'] )
 
+    for x in keepers:
+      start_time_dt  = datetime.strptime( x['start_time'][:-3],"%Y-%m-%d %H:%M:%S.%f") # trim off last 3 000s from timestamp string
+      end_time_dt    = datetime.strptime( x['start_time'][:-3],"%Y-%m-%d %H:%M:%S.%f")
+        
+      x.update({'duration_ms'     : conv_duration_to_millis(x['duration']     ) })
+      x.update({'waiting_time_ms' : conv_duration_to_millis(x['waiting_time'] ) })
+      x.update({'start_time_dt'   : start_time_dt                               })
+      x.update({'end_time_dt'     : end_time_dt                                 })
+      x.update({"periodBegin_dt"  : periodBegin_dt                              })
+      x.update({"host"             : impalad                                     })
+      del x['derived_end_time_dt']
+      del x['start_time'  ] 
+      del x['end_time'    ] 
+      del x['duration'    ] 
+      del x['waiting_time']
+
+      app.logger.debug("inserting query " + x['stmt'][:32] )
+  
     app.logger.debug("about to insert"  )
     with app.app_context():
       db.engine.execute(Impala_Stats.__table__.insert(),keepers)
     app.logger.debug("back from insert"  )
-
+  
   else:
     app.logger.debug("No queries found"  )
-
+  
 import re
 def conv_duration_to_millis(ds):
-  matches=re.match(r"(?P<hours>(\d+h)*)(?P<minutes>(\d+m)*(?!s))(?P<seconds>(\d+s)*)(?P<millis>(\d+ms)*)", ds)
+  matches=re.match(r"(?P<hours>(\d+h)*)(?P<minutes>(\d+m)*(?!s))(?P<seconds>(\d+s)*)(?P<millis>(\d+ms)*)(?P<micros>(\d+us)*)", ds)
   md=matches.groupdict()
   dur_ms=0
   if md['millis']:
